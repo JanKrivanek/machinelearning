@@ -46,7 +46,6 @@ permissions:
 tools:
   github:
     toolsets: [repos, issues, actions]
-  cache-memory:
   bash: ["cat", "grep", "head", "tail", "wc", "jq", "date", "sort", "uniq", "echo"]
 
 imports:

@@ -28,10 +28,18 @@ permissions:
   issues: read
   pull-requests: read
 
+concurrency:
+  group: "triage-issue-${{ github.event.inputs.upstream_issue }}"
+  cancel-in-progress: false
+
+engine:
+  id: copilot
+  concurrency:
+    group: "gh-aw-copilot-triage-${{ github.event.inputs.upstream_issue }}"
+
 tools:
   github:
     toolsets: [repos, issues, pull_requests]
-  cache-memory:
   bash: ["cat", "grep", "head", "tail", "find", "ls", "wc", "jq", "date",
          "sort", "uniq", "dotnet", "mkdir", "cd", "echo", "cp"]
   edit:
@@ -40,6 +48,7 @@ imports:
   - ../aw/shared/triage-rules.lock.md
 
 safe-outputs:
+  concurrency-group: "safe-outputs-triage-${{ github.event.inputs.upstream_issue }}"
   create-issue:
     title-prefix: "[triage] "
     labels: [triage, ai-investigation]
