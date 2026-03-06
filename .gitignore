@@ -338,3 +338,6 @@ ASALocalRun/
 *.binlog
 # Ignore external test datasets.
 /test/data/external/
+
+# gh-aw audit logs
+.github/aw/logs/
