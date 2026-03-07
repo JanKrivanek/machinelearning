@@ -1111,8 +1111,14 @@ jobs:
       discussions: write
       issues: write
       pull-requests: write
+    # NOTE: Manual edit — the gh-aw compiler generates a static concurrency group
+    # ("gh-aw-conclusion-triage-single-issue") shared across ALL runs of this workflow.
+    # This causes conclusion jobs to cancel each other when multiple triage runs
+    # complete around the same time (only 1 running + 1 pending allowed per group).
+    # Fixed to include the issue number so each run gets its own concurrency group.
+    # If you recompile with `gh aw compile`, you must re-apply this fix.
     concurrency:
-      group: "gh-aw-conclusion-triage-single-issue"
+      group: "gh-aw-conclusion-triage-issue-${{ github.event.inputs.upstream_issue }}"
       cancel-in-progress: false
     outputs:
       noop_message: ${{ steps.noop.outputs.noop_message }}

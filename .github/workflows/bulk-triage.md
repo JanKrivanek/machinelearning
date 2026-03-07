@@ -54,8 +54,8 @@ imports:
 safe-outputs:
   dispatch-workflow:
     workflows:
-      - triage-single-issue
-    max: 20
+      - dispatch-triage-batch
+    max: 1
   create-issue:
     title-prefix: "[bulk-triage-run] "
     labels: [automation, bulk-triage]
@@ -136,26 +136,32 @@ For each upstream issue, search THIS repository's issues:
 
 Record: total fetched, total after filtering, skipped count, and unprocessed count.
 
-## Step 2: Dispatch Workers
+## Step 2: Dispatch Workers via Batch
 
-For each issue marked as "needs triage", dispatch the `triage-single-issue` workflow:
+Collect ALL issue numbers marked as "needs triage" into a JSON array and dispatch
+them in a **single** call to the `dispatch-triage-batch` workflow. This workflow
+handles throttled dispatching — it runs at most 4 triage workers in parallel and
+waits for each batch to complete before starting the next.
 
 ```json
 {
-  "workflow": "triage-single-issue",
+  "workflow": "dispatch-triage-batch",
   "inputs": {
-    "upstream_issue": "<issue_number>",
+    "issues_json": "[\"7100\",\"7101\",\"7102\"]",
     "upstream_repo": "${{ github.event.inputs.upstream_repo }}",
-    "skip_repro": "${{ github.event.inputs.skip_repro }}"
+    "skip_repro": "${{ github.event.inputs.skip_repro }}",
+    "max_parallel": "4"
   }
 }
 ```
 
 **Important constraints:**
-- Maximum 20 dispatches per run (enforced by the safe-outputs max setting)
-- gh-aw automatically enforces a 5-second delay between dispatches for rate limiting
-- If more than 20 issues need triaging, dispatch only the first 20 (most recent)
-  and note the remainder in the summary
+- Pass the issue numbers as a JSON array of strings in `issues_json`
+- Maximum 20 issues per batch (if more need triaging, include only the first 20
+  most recent and note the remainder in the summary)
+- The batch dispatcher handles throttling automatically — do NOT dispatch
+  individual `triage-single-issue` workflows directly
+- Make exactly ONE call to `dispatch_triage_batch` with the full list
 
 Record the list of issue numbers that were dispatched.
 
