@@ -377,7 +377,7 @@ jobs:
           mkdir -p /tmp/gh-aw/safeoutputs
           mkdir -p /tmp/gh-aw/mcp-logs/safeoutputs
           cat > /opt/gh-aw/safeoutputs/config.json << 'GH_AW_SAFE_OUTPUTS_CONFIG_EOF'
-          {"create_issue":{"expires":168,"max":1},"dispatch_workflow":{"max":20,"workflow_files":{"triage-single-issue":".lock.yml"},"workflows":["triage-single-issue"]},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
+          {"create_issue":{"expires":168,"max":1},"dispatch_workflow":{"max":1,"workflow_files":{"dispatch-triage-batch":".yml"},"workflows":["dispatch-triage-batch"]},"missing_data":{},"missing_tool":{},"noop":{"max":1}}
           GH_AW_SAFE_OUTPUTS_CONFIG_EOF
           cat > /opt/gh-aw/safeoutputs/tools.json << 'GH_AW_SAFE_OUTPUTS_TOOLS_EOF'
           [
@@ -524,18 +524,23 @@ jobs:
               "name": "missing_data"
             },
             {
-              "_workflow_name": "triage-single-issue",
-              "description": "Dispatch the 'triage-single-issue' workflow with workflow_dispatch trigger. This workflow must support workflow_dispatch and be in .github/workflows/ directory in the same repository.",
+              "_workflow_name": "dispatch-triage-batch",
+              "description": "Dispatch the 'dispatch-triage-batch' workflow which dispatches triage-single-issue workflows in throttled batches (max 4 concurrent by default). Pass all issue numbers as a JSON array in a single call instead of dispatching individual triage workflows.",
               "inputSchema": {
                 "additionalProperties": false,
                 "properties": {
-                  "skip_repro": {
-                    "default": false,
-                    "description": "Skip reproduction step",
-                    "type": "boolean"
+                  "issues_json": {
+                    "description": "JSON array of upstream issue numbers to triage (e.g. [\"7100\",\"7101\",\"7102\"])",
+                    "type": "string"
                   },
-                  "upstream_issue": {
-                    "description": "Upstream issue number (e.g. 7100)",
+                  "max_parallel": {
+                    "default": "4",
+                    "description": "Maximum number of triage workflows to run concurrently",
+                    "type": "string"
+                  },
+                  "skip_repro": {
+                    "default": "false",
+                    "description": "Skip reproduction step for all workers",
                     "type": "string"
                   },
                   "upstream_repo": {
@@ -545,11 +550,11 @@ jobs:
                   }
                 },
                 "required": [
-                  "upstream_issue"
+                  "issues_json"
                 ],
                 "type": "object"
               },
-              "name": "triage_single_issue"
+              "name": "dispatch_triage_batch"
             }
           ]
           GH_AW_SAFE_OUTPUTS_TOOLS_EOF
@@ -1204,7 +1209,7 @@ jobs:
           GH_AW_ALLOWED_DOMAINS: "api.business.githubcopilot.com,api.enterprise.githubcopilot.com,api.github.com,api.githubcopilot.com,api.individual.githubcopilot.com,api.snapcraft.io,archive.ubuntu.com,azure.archive.ubuntu.com,crl.geotrust.com,crl.globalsign.com,crl.identrust.com,crl.sectigo.com,crl.thawte.com,crl.usertrust.com,crl.verisign.com,crl3.digicert.com,crl4.digicert.com,crls.ssl.com,github.com,host.docker.internal,json-schema.org,json.schemastore.org,keyserver.ubuntu.com,ocsp.digicert.com,ocsp.geotrust.com,ocsp.globalsign.com,ocsp.identrust.com,ocsp.sectigo.com,ocsp.ssl.com,ocsp.thawte.com,ocsp.usertrust.com,ocsp.verisign.com,packagecloud.io,packages.cloud.google.com,packages.microsoft.com,ppa.launchpad.net,raw.githubusercontent.com,registry.npmjs.org,s.symcb.com,s.symcd.com,security.ubuntu.com,telemetry.enterprise.githubcopilot.com,ts-crl.ws.symantec.com,ts-ocsp.ws.symantec.com"
           GITHUB_SERVER_URL: ${{ github.server_url }}
           GITHUB_API_URL: ${{ github.api_url }}
-          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_issue\":{\"close_older_issues\":true,\"expires\":168,\"labels\":[\"automation\",\"bulk-triage\"],\"max\":1,\"title_prefix\":\"[bulk-triage-run] \"},\"dispatch_workflow\":{\"max\":20,\"workflow_files\":{\"triage-single-issue\":\".lock.yml\"},\"workflows\":[\"triage-single-issue\"]},\"missing_data\":{},\"missing_tool\":{}}"
+          GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\"create_issue\":{\"close_older_issues\":true,\"expires\":168,\"labels\":[\"automation\",\"bulk-triage\"],\"max\":1,\"title_prefix\":\"[bulk-triage-run] \"},\"dispatch_workflow\":{\"max\":1,\"workflow_files\":{\"dispatch-triage-batch\":\".yml\"},\"workflows\":[\"dispatch-triage-batch\"]},\"missing_data\":{},\"missing_tool\":{}}"
         with:
           github-token: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
           script: |

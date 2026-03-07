@@ -1,0 +1,176 @@
+# Throttled dispatcher for triage-single-issue workflows.
+#
+# Dispatches upstream issues in batches with a configurable parallelism limit,
+# waiting for each batch to complete before starting the next. This prevents
+# overwhelming GitHub Actions runners and avoids concurrency-group conflicts
+# in the triage-single-issue conclusion jobs.
+#
+# Designed to be dispatched from the Bulk Triage agent (or manually) with a
+# JSON array of upstream issue numbers.
+#
+# Timing budget (worst-case):
+#   A single triage run can take up to ~60 min (agent: 20m + threat detection:
+#   20m + safe_outputs: 15m + activation/conclusion: ~5m).
+#   With max_parallel=4 and 20 issues → 5 batches × ~75 min = ~375 min.
+#   Job timeout is set to 360 min (6 hours) to accommodate this.
+
+name: "Dispatch Triage Batch"
+
+on:
+  workflow_dispatch:
+    inputs:
+      issues_json:
+        description: 'JSON array of upstream issue numbers (e.g. ["7100","7101","7102"])'
+        required: true
+        type: string
+      upstream_repo:
+        description: 'Upstream repo (owner/name)'
+        required: false
+        default: 'dotnet/machinelearning'
+        type: string
+      skip_repro:
+        description: 'Skip reproduction step for all workers'
+        required: false
+        default: 'false'
+        type: string
+      max_parallel:
+        description: 'Max number of triage workflows running concurrently'
+        required: false
+        default: '4'
+        type: string
+
+permissions:
+  actions: write
+
+run-name: "Dispatch Triage Batch (${{ inputs.max_parallel }} parallel)"
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    # 6 hours — enough for 5 batches of 4 issues each at ~60 min per triage
+    timeout-minutes: 360
+    steps:
+      - name: Validate inputs
+        env:
+          ISSUES_JSON: ${{ inputs.issues_json }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+        run: |
+          if ! echo "$ISSUES_JSON" | jq -e 'type == "array" and length > 0' > /dev/null 2>&1; then
+            echo "::error::issues_json must be a non-empty JSON array"
+            exit 1
+          fi
+          if ! [[ "$MAX_PARALLEL" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::max_parallel must be a positive integer"
+            exit 1
+          fi
+          COUNT=$(echo "$ISSUES_JSON" | jq 'length')
+          echo "### Dispatch Triage Batch" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Issues to triage:** ${COUNT}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **Max parallel:** ${MAX_PARALLEL}" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Dispatch in throttled batches
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUES_JSON: ${{ inputs.issues_json }}
+          MAX_PARALLEL: ${{ inputs.max_parallel }}
+          UPSTREAM_REPO: ${{ inputs.upstream_repo }}
+          SKIP_REPRO: ${{ inputs.skip_repro }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          readarray -t ISSUES < <(echo "$ISSUES_JSON" | jq -r '.[]')
+          TOTAL=${#ISSUES[@]}
+
+          echo "Total issues to triage: ${TOTAL}"
+          echo "Max parallel: ${MAX_PARALLEL}"
+          echo ""
+
+          batch_num=0
+          dispatched=0
+          all_results=""
+
+          for ((i=0; i<TOTAL; i+=MAX_PARALLEL)); do
+            batch_num=$((batch_num + 1))
+            BATCH=("${ISSUES[@]:i:MAX_PARALLEL}")
+            BATCH_SIZE=${#BATCH[@]}
+
+            echo "=========================================="
+            echo "Batch ${batch_num}: ${BATCH_SIZE} issue(s) — ${BATCH[*]}"
+            echo "=========================================="
+
+            # Dispatch all issues in this batch
+            for ISSUE in "${BATCH[@]}"; do
+              echo "  → Dispatching triage for upstream issue #${ISSUE}"
+              gh workflow run triage-single-issue.lock.yml \
+                --repo "${REPO}" \
+                -f upstream_issue="${ISSUE}" \
+                -f upstream_repo="${UPSTREAM_REPO}" \
+                -f skip_repro="${SKIP_REPRO}"
+              dispatched=$((dispatched + 1))
+              all_results="${all_results}| ${ISSUE} | dispatched |"$'\n'
+              # Rate-limit dispatches to avoid GitHub API throttling
+              sleep 5
+            done
+
+            # Check if there are more batches after this one
+            REMAINING=$((TOTAL - i - BATCH_SIZE))
+            if [ "$REMAINING" -le 0 ]; then
+              echo ""
+              echo "Last batch dispatched. Waiting for completion..."
+            else
+              echo ""
+              echo "Waiting for batch ${batch_num} to complete before dispatching next ${REMAINING} issue(s)..."
+            fi
+
+            # Wait for dispatched runs to register in the API
+            sleep 30
+
+            # Poll until all active triage runs finish
+            # A single triage can take up to ~60 min, so we allow 75 min per batch
+            BATCH_TIMEOUT=4500  # 75 minutes
+            ELAPSED=0
+            POLL_INTERVAL=30
+
+            while [ $ELAPSED -lt $BATCH_TIMEOUT ]; do
+              # Count in-progress, queued, and waiting triage runs
+              ACTIVE_IN_PROGRESS=$(gh api "repos/${REPO}/actions/workflows/triage-single-issue.lock.yml/runs?status=in_progress" \
+                --jq '.total_count' 2>/dev/null || echo "0")
+              ACTIVE_QUEUED=$(gh api "repos/${REPO}/actions/workflows/triage-single-issue.lock.yml/runs?status=queued" \
+                --jq '.total_count' 2>/dev/null || echo "0")
+              ACTIVE_WAITING=$(gh api "repos/${REPO}/actions/workflows/triage-single-issue.lock.yml/runs?status=waiting" \
+                --jq '.total_count' 2>/dev/null || echo "0")
+              ACTIVE=$((ACTIVE_IN_PROGRESS + ACTIVE_QUEUED + ACTIVE_WAITING))
+
+              if [ "$ACTIVE" -le 0 ]; then
+                echo "  ✅ Batch ${batch_num} complete — all triage runs finished."
+                break
+              fi
+
+              MINUTES=$((ELAPSED / 60))
+              echo "  ⏳ ${ACTIVE} triage run(s) still active (${MINUTES}m elapsed, timeout at $((BATCH_TIMEOUT / 60))m)..."
+              sleep $POLL_INTERVAL
+              ELAPSED=$((ELAPSED + POLL_INTERVAL))
+            done
+
+            if [ $ELAPSED -ge $BATCH_TIMEOUT ]; then
+              echo "  ⚠️  Batch ${batch_num} timed out after $((BATCH_TIMEOUT / 60))m — some runs may still be active."
+              echo "  Proceeding to next batch anyway."
+            fi
+
+            echo ""
+          done
+
+          echo "=========================================="
+          echo "Summary: Dispatched ${dispatched}/${TOTAL} triage workflows"
+          echo "         across ${batch_num} batch(es)"
+          echo "=========================================="
+
+          # Write summary table
+          {
+            echo "| Issue | Status |"
+            echo "|-------|--------|"
+            echo "$all_results"
+          } >> "$GITHUB_STEP_SUMMARY"
