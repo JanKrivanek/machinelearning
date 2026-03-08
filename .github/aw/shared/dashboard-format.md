@@ -37,6 +37,7 @@ Extract data using these field patterns:
 | Confidence | `**Confidence:** <value>` | `**Confidence:** 0.92` |
 | Reproduced | `**Reproduced:** <value>` | `**Reproduced:** ✅ Yes` |
 | Area | `**Area:** <value>` | `**Area:** AutoML` |
+| Complexity | `**Complexity:** <value>` (inside `## Suggested Fix` section) | `**Complexity:** Low` |
 
 For the **Reproduced** field, normalize these variants:
 - "✅ Yes", "Yes" → reproduced
@@ -47,6 +48,23 @@ For the **Reproduced** field, normalize these variants:
 For determining if a **fix was suggested**, check for the presence of a
 `## Suggested Fix` or `**Suggested Fix**` section in the body, OR
 the `fix-suggested` label on the issue.
+
+For the **fix complexity**, look inside the `## Suggested Fix` section for the
+pattern `**Complexity:** <value>`. Normalize the first word to one of these
+categories:
+
+| Raw value (first word / prefix) | Normalized | Display |
+|---|---|---|
+| Low | Low | 🟢 Low |
+| Low–Medium, Low-Medium, LowMedium | Low–Med | 🟡 Low–Med |
+| Medium | Medium | 🟡 Medium |
+| Medium–High, Medium-High, MediumHigh | Med–High | 🟠 Med–High |
+| High | High | 🔴 High |
+| *(field missing or no suggested fix)* | — | — |
+
+Extract only the **first word** (up to the first space, dash, or parenthesis)
+from the Complexity value for normalization. Compound values like
+"Medium–High" or "Low–Medium" should match the compound entries above.
 
 For the **upstream issue number**, extract from the URL in the Upstream field
 (the number after `/issues/`), or from the issue title pattern
@@ -90,10 +108,10 @@ issue body. Replace all `<placeholder>` values with actual computed data.
 
 ## All Investigations
 
-| Upstream | Classification | Reproduced? | Fix? | Status | Fork Issue |
-|---|---|---|---|---|---|
-| [#<N>](https://github.com/dotnet/machinelearning/issues/<N>) | <emoji> <category> | <repro_status> | <fix_status> | <status> | #<fork_issue_number> |
-| ... | ... | ... | ... | ... | ... |
+| Upstream | Classification | Reproduced? | Fix? | Complexity | Status | Fork Issue |
+|---|---|---|---|---|---|---|
+| [#<N>](https://github.com/dotnet/machinelearning/issues/<N>) | <emoji> <category> | <repro_status> | <fix_status> | <complexity_display> | <status> | #<fork_issue_number> |
+| ... | ... | ... | ... | ... | ... | ... |
 
 ## Action Items
 
