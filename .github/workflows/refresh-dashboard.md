@@ -100,6 +100,10 @@ parsing rules in `dashboard-format.md`:
 6. **Area** — from `**Area:** <VALUE>`
 7. **Fix suggested** — `true` if the issue has the `fix-suggested` label OR
    contains a `## Suggested Fix` section in the body
+8. **Complexity** — from `**Complexity:** <VALUE>` inside the
+   `## Suggested Fix` section. Normalize to the display values defined in
+   dashboard-format.md (🟢 Low, 🟡 Low–Med, 🟡 Medium, 🟠 Med–High, 🔴 High).
+   If no complexity field or no suggested fix section, use "—".
 
 Also read the issue's labels to detect: `reproduced`, `repro-failed`,
 `fix-suggested`, `bug`, `enhancement`, `discussion`, `wrong-usage`,
@@ -149,6 +153,7 @@ Build a row for EVERY triage issue. Sort by fork issue number descending
 - Classification with emoji (see emoji mapping in dashboard-format.md)
 - Reproduced status (see repro display mapping)
 - Fix suggested (✅ Yes / ❌ No)
+- Complexity (with colored circle emoji per dashboard-format.md, or "—" if none)
 - Status (✅ COMPLETE / 🔄 IN_PROGRESS)
 - Fork issue number link
 
