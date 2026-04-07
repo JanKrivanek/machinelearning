@@ -13,24 +13,13 @@ permissions:
 
 imports:
   - .github/agents/code-testing-generator.agent.md
+  - shared/repo-build-setup.md
 
 tools:
   github:
     toolsets: [pull_requests, repos]
   edit:
   bash: ["dotnet", "git", "find", "ls", "cat", "grep", "head", "tail", "wc", "mkdir"]
-
-steps:
-  - name: Install native dependencies
-    run: |
-      sudo ./eng/common/native/install-dependencies.sh
-      sudo apt-get install -qq -y libomp-dev
-
-  - name: Build
-    run: ./build.sh
-
-  - name: Put dotnet on the path
-    run: echo "PATH=$PWD/.dotnet:$PATH" >> $GITHUB_ENV
 
 safe-outputs:
   create-pull-request:
