@@ -19,7 +19,7 @@
     <MicrosoftExtensionsObjectPoolVersion>9.0.4</MicrosoftExtensionsObjectPoolVersion>
     <MicrosoftExtensionsOptionsVersion>9.0.4</MicrosoftExtensionsOptionsVersion>
     <NuGetVersion>6.9.1</NuGetVersion>
-    <SkiaSharpVersion>2.88.8</SkiaSharpVersion>
+    <SkiaSharpVersion>3.119.2</SkiaSharpVersion>
     <SystemCodeDomVersion>9.0.4</SystemCodeDomVersion>
     <SystemCollectionsImmutableVersion>9.0.4</SystemCollectionsImmutableVersion>
     <SystemConfigurationConfigurationManagerVersion>9.0.4</SystemConfigurationConfigurationManagerVersion>
@@ -98,7 +98,7 @@
     <MicrosoftDotNetBuildTasksTemplatingVersion>9.0.0-beta.24212.4</MicrosoftDotNetBuildTasksTemplatingVersion>
     <MicrosoftDotNetPlatformAbstractionsVersion>5.0.0-preview.5.20278.1</MicrosoftDotNetPlatformAbstractionsVersion>
     <MicrosoftDotNetRemoteExecutorVersion>8.0.0-beta.24525.2</MicrosoftDotNetRemoteExecutorVersion>
-    <MicrosoftDotNetXUnitExtensionsVersion>11.0.0-beta.25626.7</MicrosoftDotNetXUnitExtensionsVersion>
+    <MicrosoftDotNetXUnitExtensionsVersion>11.0.0-beta.26163.2</MicrosoftDotNetXUnitExtensionsVersion>
     <MicrosoftExtensionsDependencyModelVersion>9.0.4</MicrosoftExtensionsDependencyModelVersion>
     <MicrosoftMLOnnxTestModelsVersion>0.0.6-test</MicrosoftMLOnnxTestModelsVersion>
     <MicrosoftMLTensorFlowTestModelsVersion>0.0.13-test</MicrosoftMLTensorFlowTestModelsVersion>
