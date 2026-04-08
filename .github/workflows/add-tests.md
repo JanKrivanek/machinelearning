@@ -12,7 +12,6 @@ permissions:
   pull-requests: read
 
 imports:
-  - .github/agents/code-testing-generator.agent.md
   - shared/repo-build-setup.md
 
 tools:
@@ -62,7 +61,7 @@ Analyze the pull request diff to identify source files that were added or modifi
 
 ### Step 3: Generate Tests
 
-Use the `code-testing-agent` skill (from the dotnet-test package) to generate tests:
+Use the `code-testing-generator` agent (defined at `.github/agents/code-testing-generator.agent.md`) to generate tests:
 
 1. Follow the Research → Plan → Implement pipeline from the skill
 2. **Scope**: Only generate tests for code modified in this PR — do not attempt full-repo coverage
